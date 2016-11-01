@@ -27,3 +27,38 @@ void TIME()		 				//计时函数
 			again=1;	 //关闭一分钟等待
 		}	
 	}
+// -------------------------------------------------------------------
+	else			 					//一分钟等待模式
+	{
+		delay(50);		 				//50ms
+		TIME_50ms++;		   			//每个50ms变量加1
+		if(TIME_50ms%10==0)		 		//每500ms
+		{
+			LED_B=!LED_B;		  		//闪烁
+			if(flag_alam==1)			//报警时
+			{
+				
+				if(flag_continue==0)	//进入报警时
+				{
+					flag_continue=1;	//此标志位置一  防止报警时进入????????
+					time_continue=TIME_50ms;   	  //将进入报警时的计时数据暂存
+				}
+				BUZZ=!BUZZ;	 			//闪烁响
+				if(TIME_50ms>=time_continue+100)  //报警时间达到5s后
+				{
+					BUZZ=1;			   //关闭蜂鸣器
+					flag_continue=0;   //标志位清零 等待下一次报警
+					flag_alam=0;	   //报警变量清零 停止报警
+					time_continue=0;   //暂存数据清零
+				}	
+			}
+		}
+		if(TIME_50ms>=1200)	   		 //计时达到60s
+		{
+			LED_B=0;				 //布防指示灯长亮 准备检测热释电信号
+			TIME_50ms=0;	 		 //计时变量清零
+			flag_time_start=0;		 //停止计时
+			again=1;				 //关闭一分钟等待
+		}
+	}
+}
