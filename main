@@ -1,0 +1,9 @@
+void main()
+{	
+	Uart_init();
+	while(1)
+	{
+		keyscan();
+		GSM_work();
+	}	  
+}
