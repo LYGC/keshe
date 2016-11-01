@@ -1,9 +1,4 @@
-#include<reg52.h>
-#include <intrins.h>
-#include <absacc.h>		  //头文件
-#define uint unsigned int
-#define uchar unsigned char	  //宏定义
-//--------------------------------------------------------------以上是必要的头文件
+
 void main()
 {	
 	Uart_init();
