@@ -64,4 +64,20 @@ void delay(uint z)//延时函数
 	for(x=z;x>0;x--)
 	for(y=110;y>0;y--);
 }
+void SendASC(uchar d)  //串口发送数据
+{
+	
+	SBUF=d;	  //数据赋值到缓冲区
+	while(!TI);	 //发送完
+	TI=0;		  //清零
+}
 
+void SendString(uchar *str)	  //串口发送字符串
+{
+	while(*str)			 //判断是否发送完
+	{
+		SendASC(*str) ;	  //发送字符   调用SendASC()
+		str++;				//字符位置加
+		//delay_uart(1);
+	}
+}
