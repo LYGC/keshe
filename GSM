@@ -1,0 +1,70 @@
+void GSM_work()
+{
+	unsigned char send_number;	//手机号
+	if((rsd==0||yanwu==0)&&flag_BF==1)	 //布防且有热释电信号
+	flag_alam=1;	//报警变量置一
+	if(((rsd==0||yanwu==0)&&flag_BF==1&&again==1)||SOS==1)// 布防且有热释电且不在一分钟等待时间内 或者手动按下紧急键
+	{
+		LED_S=0;   //短信指示等亮
+		BUZZ=1;		//关闭蜂鸣器
+		SendString("AT+CMGF=1\r\n");	//设置文本模式
+		
+		delay(200);		  //延时
+		
+		SendString("AT+CSCS=\"UCS2\"\r\n");//设置短信格式 发送汉字模式	
+		
+		delay(200);	  //延时
+		
+		SendString("AT+CSMP=17,0,2,25\r\n");//设置短信文本参数模式	
+		
+		delay(200);
+		
+		SendString("AT+CMGS=");	//信息发送指令 AT+CMGS=//
+		SendASC('"');  //引号
+		for(send_number=0;send_number<11;send_number++)//在每位号码前加003
+		{
+			SendASC('0');
+			SendASC('0');
+			SendASC('3');
+			SendASC(PhoneNO[send_number]);//接受手机号
+		}     
+		SendASC('"');
+		SendASC('\r');			//发送回车指令//
+		SendASC('\n');			//发送换行指令//
+		
+		delay(200);
+
+		if(rsd==0&&yanwu==1)
+		SendString(somebody);
+		else if(rsd==1&&yanwu==0)
+		SendString(somebody1);
+		else if((rsd==0&&yanwu==0)||SOS==1)
+		SendString(somebody2);
+							   
+		delay(200);
+		
+		SendASC(0x1a);
+		
+		if(SOS==0)	//不是紧急发送短信
+		{
+			again=0; //again清零  进入一分钟等待
+			flag_time_start=1; //开始计时
+			flag_alam=1; //报警
+				
+		}
+		else if(SOS==1&&flag_time_start==1)	 //紧急按键发送短信后
+		{
+			TIME_50ms=0;	 //计时数据清零
+			flag_BF=1;	   //布防变量置一
+			LED_B=0;  //点亮布防
+			flag_time_start=0;	//停止计时
+			again=1;   //不进入一分钟
+		}
+
+
+		delay(2000);
+		LED_S=1;//熄灭短信发送指示灯
+		SOS=0;			  //紧急变量清零
+		flag=1;		 //变量置一
+	}
+}	
