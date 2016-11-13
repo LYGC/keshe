@@ -3,7 +3,6 @@
 #include <absacc.h>		  //头文件
 #define uint unsigned int
 #define uchar unsigned char	  //宏定义
-//--------------------------------------------------------------以上是必要的头文件
 
 //按键
 sbit key1=P3^2;	   //布防
@@ -32,7 +31,14 @@ bit flag_alam;		     //报警标志位
 bit SOS;			     //发送短信时候是否按下紧急键
 bit flag_continue;		 //  继续计时
 bit into_BF=0;
-//--------------------------------------------------------------以上是必要的变量初始化
+
+void delay(uint z)//延时函数
+{
+	uint x,y;
+	for(x=z;x>0;x--)
+	for(y=110;y>0;y--);
+}
+
 void Uart_init()
 {
 	TMOD= 0X20;		//T1  方式2  ，8位   自动重装   
@@ -47,23 +53,7 @@ void Uart_init()
 	ES=0; 	     // 串口中断应许 
 	EA=1;		 // 开启中断 
 }
-//--------------------------------------------------------------以上是单片机接口的初始化
 
-void main()
-{	
-	Uart_init();
-	while(1)
-	{
-		keyscan();
-		GSM_work();
-	}	  
-}
-void delay(uint z)//延时函数
-{
-	uint x,y;
-	for(x=z;x>0;x--)
-	for(y=110;y>0;y--);
-}
 void SendASC(uchar d)  //串口发送数据
 {
 	
@@ -80,4 +70,193 @@ void SendString(uchar *str)	  //串口发送字符串
 		str++;				//字符位置加
 		//delay_uart(1);
 	}
+}
+
+
+void TIME()		 				//计时函数
+{
+// -------------------------------------------------------------------
+	if(flag==0)			  //布防计时模式
+	{
+		delay(50);					   //延迟50ms
+		TIME_50ms++;					
+		if(TIME_50ms%10==0)			
+		LED_B=!LED_B;	 //每500ms布防指示灯指示灯取反一次
+					  
+		if(TIME_50ms>=400)	//20s
+		{
+			TIME_50ms=0;   //计时变量清零
+			flag_BF=1;	 //布防状态进入
+			LED_B=0;	 //布防指示灯亮
+			flag_time_start=0;		   //停止计时
+			again=1;	 //关闭一分钟等待
+		}	
+	}
+// -------------------------------------------------------------------
+	else			 					//一分钟等待模式
+	{
+		delay(50);		 				//50ms
+		TIME_50ms++;		   			//每个50ms变量加1
+		if(TIME_50ms%10==0)		 		//每500ms
+		{
+			LED_B=!LED_B;		  		//闪烁
+			if(flag_alam==1)			//报警时
+			{
+				
+				if(flag_continue==0)	//进入报警时
+				{
+					flag_continue=1;	//此标志位置一  防止报警时进入????????
+					time_continue=TIME_50ms;   	  //将进入报警时的计时数据暂存
+				}
+				BUZZ=!BUZZ;	 			//闪烁响
+				if(TIME_50ms>=time_continue+100)  //报警时间达到5s后
+				{
+					BUZZ=1;			   //关闭蜂鸣器
+					flag_continue=0;   //标志位清零 等待下一次报警
+					flag_alam=0;	   //报警变量清零 停止报警
+					time_continue=0;   //暂存数据清零
+				}	
+			}
+		}
+		if(TIME_50ms>=1200)	   		 //计时达到60s
+		{
+			LED_B=0;				 //布防指示灯长亮 准备检测热释电信号
+			TIME_50ms=0;	 		 //计时变量清零
+			flag_time_start=0;		 //停止计时
+			again=1;				 //关闭一分钟等待
+		}
+	}
+}
+
+
+//按键扫描函数
+void keyscan()
+{
+
+// -------------------------------------------------------------------
+	if(key1==0&&flag_BF==0)			//非布防状态下按下
+	{
+		delay(5);					//延时去抖
+		if(key1==0)	  				//再次判断按下
+		{
+			LED_B=0;				//点亮布防
+			flag=0;					//变量清零
+			flag_time_start=1;		//开始计时变量置一
+		}
+		while(key1==0);	  			//按键释放
+	}
+	if(flag_time_start==1)			//开始计时
+	{
+		TIME();						//调用Time()函数
+	}
+// -------------------------------------------------------------------
+
+	if(key2==0)		//撤防按键按下
+	{			   
+		delay(5);//延时去抖
+		if(key2==0)		   //再次检测
+		{
+			BUZZ=1;	//关闭蜂鸣器 
+			flag_alam=0; //报警变量清零
+			flag_BF=0;	 //布防变量清零
+			flag=0;		 //变量清零
+			flag_time_start=0;	   //开始计时变量清零
+			LED_S=1;			 //关闭短信指示灯
+			LED_B=1;			 //关闭布防指示灯
+		}
+		while(key2==0);//按键释放
+	}
+
+ // -------------------------------------------------------------------
+
+	if(key3==0)	   //再次判断按键是否按下
+	{
+		delay(5);
+		if(key3==0)
+		{
+			SOS=1;				 //手动发送短信变量为1
+			flag_alam=1;	 //报警变量置一
+		}
+		while(key3==0);		//按键释放
+	}
+} 
+
+void GSM_work()
+{
+	unsigned char send_number;	//手机号
+	if((rsd==0||yanwu==0)&&flag_BF==1)	 //布防且有热释电信号
+	flag_alam=1;	//报警变量置一
+	if(((rsd==0||yanwu==0)&&flag_BF==1&&again==1)||SOS==1)// 布防且有热释电且不在一分钟等待时间内 或者手动按下紧急键
+	{
+		LED_S=0;   //短信指示等亮
+		BUZZ=1;		//关闭蜂鸣器
+		SendString("AT+CMGF=1\r\n");	//设置文本模式
+		
+		delay(200);		  //延时
+		
+		SendString("AT+CSCS=\"UCS2\"\r\n");//设置短信格式 发送汉字模式	
+		
+		delay(200);	  //延时
+		
+		SendString("AT+CSMP=17,0,2,25\r\n");//设置短信文本参数模式	
+		
+		delay(200);
+		
+		SendString("AT+CMGS=");	//信息发送指令 AT+CMGS=//
+		SendASC('"');  //引号
+		for(send_number=0;send_number<11;send_number++)//在每位号码前加003
+		{
+			SendASC('0');
+			SendASC('0');
+			SendASC('3');
+			SendASC(PhoneNO[send_number]);//接受手机号
+		}     
+		SendASC('"');
+		SendASC('\r');			//发送回车指令//
+		SendASC('\n');			//发送换行指令//
+		
+		delay(200);
+
+		if(rsd==0&&yanwu==1)
+		SendString(somebody);
+		else if(rsd==1&&yanwu==0)
+		SendString(somebody1);
+		else if((rsd==0&&yanwu==0)||SOS==1)
+		SendString(somebody2);
+							   
+		delay(200);
+		
+		SendASC(0x1a);
+		
+		if(SOS==0)	//不是紧急发送短信
+		{
+			again=0; //again清零  进入一分钟等待
+			flag_time_start=1; //开始计时
+			flag_alam=1; //报警
+				
+		}
+		else if(SOS==1&&flag_time_start==1)	 //紧急按键发送短信后
+		{
+			TIME_50ms=0;	 //计时数据清零
+			flag_BF=1;	   //布防变量置一
+			LED_B=0;  //点亮布防
+			flag_time_start=0;	//停止计时
+			again=1;   //不进入一分钟
+		}
+
+
+		delay(2000);
+		LED_S=1;//熄灭短信发送指示灯
+		SOS=0;			  //紧急变量清零
+		flag=1;		 //变量置一
+	}
+}	
+void main()
+{	
+	Uart_init();
+	while(1)
+	{
+		keyscan();
+		GSM_work();
+	}	  
 }
